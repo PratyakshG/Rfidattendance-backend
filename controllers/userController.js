@@ -1,53 +1,74 @@
 import User from "../models/User.js";
 import UidMaster from "../models/UidMaster.js";
-import { getNextEmployeeId, peekNextEmployeeId } from "../services/employeeService.js";
+import {
+  getNextEmployeeId,
+  peekNextEmployeeId,
+} from "../services/employeeService.js";
 
 export const registerUser = async (req, res) => {
   try {
-    const { name, email, password, address, phoneNumber, uid, role = 'Employee' } = req.body;
+    const {
+      name,
+      email,
+      password,
+      address,
+      phoneNumber,
+      uid,
+      role = "Employee",
+    } = req.body;
     const profileImage = req.file ? req.file.filename : null;
 
     if (!name || !email || !password || !address || !phoneNumber || !uid) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "All fields are required" 
+        message: "All fields are required",
       });
     }
 
     const uidMaster = await UidMaster.findOne({ uid, status: "Inactive" });
     if (!uidMaster) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "UID not found in master or already used" 
+        message: "UID not found in master or already used",
       });
     }
 
     const emailExists = await User.findOne({ email });
     if (emailExists) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Email already registered" 
+        message: "Email already registered",
       });
     }
 
     const uidExists = await User.findOne({ uid });
     if (uidExists) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "UID already registered" 
+        message: "UID already registered",
       });
     }
 
     const employeeId = await getNextEmployeeId();
-    const user = await User.create({ name, email, password, address, phoneNumber, uid, role, profileImage, employeeId });
+    const user = await User.create({
+      name,
+      email,
+      password,
+      address,
+      phoneNumber,
+      uid,
+      role,
+      profileImage,
+      employeeId,
+    });
 
     uidMaster.status = "Active";
     uidMaster.assignedTo = user._id;
     await uidMaster.save();
 
-    res.json({ 
+    res.json({
       success: true,
-      message: "User Registered", 
+      message: "User Registered",
       user: {
         _id: user._id,
         employeeId: user.employeeId,
@@ -57,13 +78,13 @@ export const registerUser = async (req, res) => {
         address: user.address,
         uid: user.uid,
         role: user.role,
-        profileImage: user.profileImage
-      }
+        profileImage: user.profileImage,
+      },
     });
   } catch (err) {
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: err.message 
+      message: err.message,
     });
   }
 };
@@ -73,46 +94,46 @@ export const registerAdmin = async (req, res) => {
     const { name, email, password, phoneNumber } = req.body;
 
     if (!name || !email || !password) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Name, email and password are required" 
+        message: "Name, email and password are required",
       });
     }
 
     const emailExists = await User.findOne({ email });
     if (emailExists) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Email already registered" 
+        message: "Email already registered",
       });
     }
 
-    const user = await User.create({ 
-      name, 
-      email, 
-      password, 
+    const user = await User.create({
+      name,
+      email,
+      password,
       role: "Admin",
       uid: "ADMIN_" + Date.now(),
       address: "N/A",
       phoneNumber: phoneNumber || 0,
-      employeeId: "ADMIN_" + Date.now()
+      employeeId: "ADMIN_" + Date.now(),
     });
 
-    res.json({ 
+    res.json({
       success: true,
-      message: "Admin Registered", 
+      message: "Admin Registered",
       user: {
         _id: user._id,
         name: user.name,
         email: user.email,
         phoneNumber: user.phoneNumber,
-        role: user.role
-      }
+        role: user.role,
+      },
     });
   } catch (err) {
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: err.message 
+      message: err.message,
     });
   }
 };
@@ -122,48 +143,48 @@ export const login = async (req, res) => {
     const { email, password, employeeId } = req.body;
 
     let user;
-    
+
     if (employeeId) {
       // login with employee id employees only
       user = await User.findOne({ employeeId, password, role: "Employee" });
       if (!user) {
-        return res.status(401).json({ 
+        return res.status(401).json({
           success: false,
-          message: "Invalid employee credentials" 
+          message: "Invalid employee credentials",
         });
       }
     } else if (email) {
       // Login with email admins only
       user = await User.findOne({ email, password, role: "Admin" });
       if (!user) {
-        return res.status(401).json({ 
+        return res.status(401).json({
           success: false,
-          message: "Invalid admin credentials" 
+          message: "Invalid admin credentials",
         });
       }
     } else {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Email or Employee ID is required" 
+        message: "Email or Employee ID is required",
       });
     }
 
-    res.json({ 
+    res.json({
       success: true,
-      message: "Login successful", 
+      message: "Login successful",
       user: {
         _id: user._id,
         employeeId: user.employeeId,
         name: user.name,
         email: user.email,
         uid: user.uid,
-        role: user.role
-      }
+        role: user.role,
+      },
     });
   } catch (err) {
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: err.message 
+      message: err.message,
     });
   }
 };
@@ -174,27 +195,27 @@ export const adminLogin = async (req, res) => {
 
     const user = await User.findOne({ email, password, role: "Admin" });
     if (!user) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        message: "Invalid admin credentials" 
+        message: "Invalid admin credentials",
       });
     }
 
-    res.json({ 
+    res.json({
       success: true,
-      message: "Admin login successful", 
+      message: "Admin login successful",
       user: {
         _id: user._id,
         name: user.name,
         email: user.email,
         uid: user.uid,
-        role: user.role
-      }
+        role: user.role,
+      },
     });
   } catch (err) {
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: err.message 
+      message: err.message,
     });
   }
 };
@@ -205,27 +226,27 @@ export const employeeLogin = async (req, res) => {
 
     const user = await User.findOne({ email, password, role: "Employee" });
     if (!user) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        message: "Invalid employee credentials" 
+        message: "Invalid employee credentials",
       });
     }
 
-    res.json({ 
+    res.json({
       success: true,
-      message: "Employee login successful", 
+      message: "Employee login successful",
       user: {
         _id: user._id,
         name: user.name,
         email: user.email,
         uid: user.uid,
-        role: user.role
-      }
+        role: user.role,
+      },
     });
   } catch (err) {
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: err.message 
+      message: err.message,
     });
   }
 };
@@ -233,9 +254,9 @@ export const employeeLogin = async (req, res) => {
 export const getUsers = async (req, res) => {
   try {
     const { role, page = 1, limit = 50 } = req.query;
-    
+
     const query = role ? { role } : {};
-    
+
     const users = await User.find(query)
       .select("-__v")
       .sort({ createdAt: -1 })
@@ -250,13 +271,13 @@ export const getUsers = async (req, res) => {
       pagination: {
         current: parseInt(page),
         total: Math.ceil(total / limit),
-        count: users.length
-      }
+        count: users.length,
+      },
     });
   } catch (err) {
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: err.message 
+      message: err.message,
     });
   }
 };
@@ -271,7 +292,7 @@ export const updateUser = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found"
+        message: "User not found",
       });
     }
 
@@ -297,13 +318,13 @@ export const updateUser = async (req, res) => {
         address: user.address,
         uid: user.uid,
         role: user.role,
-        profileImage: user.profileImage
-      }
+        profileImage: user.profileImage,
+      },
     });
   } catch (err) {
     res.status(500).json({
       success: false,
-      message: err.message
+      message: err.message,
     });
   }
 };
@@ -316,25 +337,25 @@ export const deleteUser = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found"
+        message: "User not found",
       });
     }
 
     await UidMaster.updateOne(
       { uid: user.uid },
-      { $set: { status: "Inactive" }, $unset: { assignedTo: 1 } }
+      { $set: { status: "Inactive" }, $unset: { assignedTo: 1 } },
     );
 
     await User.findByIdAndDelete(userId);
 
     res.json({
       success: true,
-      message: "User deleted successfully"
+      message: "User deleted successfully",
     });
   } catch (err) {
     res.status(500).json({
       success: false,
-      message: err.message
+      message: err.message,
     });
   }
 };
@@ -348,7 +369,7 @@ export const toggleUserStatus = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found"
+        message: "User not found",
       });
     }
 
@@ -358,23 +379,26 @@ export const toggleUserStatus = async (req, res) => {
       // deactivating User
       await UidMaster.updateOne(
         { uid: user.uid },
-        { $set: { status: "Inactive" }, $unset: { assignedTo: 1 } }
+        { $set: { status: "Inactive" }, $unset: { assignedTo: 1 } },
       );
     } else {
       // activating user
       if (!newUid) {
         return res.status(400).json({
           success: false,
-          message: "New UID is required to activate user"
+          message: "New UID is required to activate user",
         });
       }
 
       // check if new uids exists and is available
-      const uidMaster = await UidMaster.findOne({ uid: newUid, status: "Inactive" });
+      const uidMaster = await UidMaster.findOne({
+        uid: newUid,
+        status: "Inactive",
+      });
       if (!uidMaster) {
         return res.status(400).json({
           success: false,
-          message: "UID not found in master or already used"
+          message: "UID not found in master or already used",
         });
       }
 
@@ -383,7 +407,7 @@ export const toggleUserStatus = async (req, res) => {
       if (uidExists) {
         return res.status(400).json({
           success: false,
-          message: "UID already assigned to another user"
+          message: "UID already assigned to another user",
         });
       }
 
@@ -391,7 +415,7 @@ export const toggleUserStatus = async (req, res) => {
       user.uid = newUid;
       await UidMaster.updateOne(
         { uid: newUid },
-        { $set: { status: "Active", assignedTo: user._id } }
+        { $set: { status: "Active", assignedTo: user._id } },
       );
     }
 
@@ -400,19 +424,19 @@ export const toggleUserStatus = async (req, res) => {
 
     res.json({
       success: true,
-      message: `User ${newStatus ? 'activated' : 'deactivated'} successfully`,
+      message: `User ${newStatus ? "activated" : "deactivated"} successfully`,
       user: {
         _id: user._id,
         employeeId: user.employeeId,
         name: user.name,
         uid: user.uid,
-        isActive: user.isActive
-      }
+        isActive: user.isActive,
+      },
     });
   } catch (err) {
     res.status(500).json({
       success: false,
-      message: err.message
+      message: err.message,
     });
   }
 };
@@ -420,15 +444,50 @@ export const toggleUserStatus = async (req, res) => {
 export const getNextEmployeeIdAPI = async (req, res) => {
   try {
     const nextEmployeeId = await peekNextEmployeeId();
-    
+
     res.json({
       success: true,
-      nextEmployeeId
+      nextEmployeeId,
     });
   } catch (err) {
     res.status(500).json({
       success: false,
-      message: err.message
+      message: err.message,
     });
   }
-};     
+};
+
+export const changepassword = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { oldPassword, newPassword } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (user.password !== oldPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Old password is incorrect",
+      });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Password changed successfully",
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};

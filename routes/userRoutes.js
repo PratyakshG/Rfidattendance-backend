@@ -1,5 +1,5 @@
 import express from "express";
-import { registerUser, registerAdmin, login, getUsers, updateUser, deleteUser, getNextEmployeeIdAPI, toggleUserStatus } from "../controllers/userController.js";
+import { registerUser, registerAdmin, login, getUsers, updateUser, deleteUser, getNextEmployeeIdAPI, toggleUserStatus, changepassword } from "../controllers/userController.js";
 import { uploadProfile } from "../middleware/upload.js";
 
 const router = express.Router();
@@ -12,5 +12,6 @@ router.get("/next-employee-id", getNextEmployeeIdAPI);
 router.put("/update/:userId", uploadProfile.single('profileImage'), updateUser);
 router.put("/toggle-status/:userId", toggleUserStatus);
 router.delete("/delete/:userId", deleteUser);
+router.patch("/change-password/:userId", changepassword);
 
 export default router;
