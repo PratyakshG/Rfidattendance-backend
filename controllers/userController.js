@@ -145,7 +145,7 @@ export const login = async (req, res) => {
     let user;
 
     if (employeeId) {
-      // login with employee id employees only
+      // Login with employee ID - employees only
       user = await User.findOne({ employeeId, password, role: "Employee" });
       if (!user) {
         return res.status(401).json({
@@ -154,12 +154,12 @@ export const login = async (req, res) => {
         });
       }
     } else if (email) {
-      // Login with email admins only
-      user = await User.findOne({ email, password, role: "Admin" });
+      // Login with email - check both Admin and Employee
+      user = await User.findOne({ email, password });
       if (!user) {
         return res.status(401).json({
           success: false,
-          message: "Invalid admin credentials",
+          message: "Invalid credentials",
         });
       }
     } else {

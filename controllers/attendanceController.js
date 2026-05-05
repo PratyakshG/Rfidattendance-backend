@@ -30,6 +30,22 @@ export const scanCard = async (req, res) => {
     const currentTime = deviceTime ? parseDeviceTime(deviceTime) : getISTTime();
     const now = new Date();
 
+    // Check if employee is on approved leave today
+    const onLeave = await Leave.findOne({
+      user: user._id,
+      status: "APPROVED",
+      startDate: { $lte: attendanceDate },
+      endDate: { $gte: attendanceDate }
+    });
+
+    if (onLeave) {
+      return res.json({
+        success: false,
+        reason: "ON_LEAVE",
+        message: `${user.name} is on approved leave today`
+      });
+    }
+
     let attendance = await Attendance.findOne({
       user: user._id,
       date: attendanceDate

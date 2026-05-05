@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
 import connectDB from "./config/db.js";
+import { lazyMarkAbsent } from "./utils/lazyAttendance.js";
 
 import userRoutes from "./routes/userRoutes.js";
 import attendanceRoutes from "./routes/attendanceRoutes.js";
@@ -40,6 +41,28 @@ app.get("/", (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+
+  // Run lazyMarkAbsent every day at midnight IST (18:30 UTC)
+  const scheduleAbsentMark = () => {
+    const now = new Date();
+    // Calculate ms until next 18:30 UTC (midnight IST)
+    const next = new Date();
+    next.setUTCHours(18, 30, 0, 0);
+    if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
+    const msUntilMidnight = next - now;
+
+    setTimeout(async () => {
+      await lazyMarkAbsent();
+      // Then repeat every 24 hours
+      setInterval(lazyMarkAbsent, 24 * 60 * 60 * 1000);
+    }, msUntilMidnight);
+
+    console.log(`⏰ Absent marking scheduled in ${Math.round(msUntilMidnight / 60000)} minutes`);
+  };
+
+  scheduleAbsentMark();
+});
 
 export default app;

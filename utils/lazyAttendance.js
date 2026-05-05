@@ -14,10 +14,10 @@ export const createUIDRegex = (uid) => {
 
 export const lazyMarkAbsent = async () => {
   try {
-    const today = getISTDate();
-       const yesterday = new Date();
+    const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    // Use IST date for yesterday
+    const yesterdayStr = yesterday.toLocaleString('en-CA', { timeZone: 'Asia/Kolkata' }).split(',')[0];
     
     const employees = await User.find({ role: "Employee" });
     
