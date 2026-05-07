@@ -1,29 +1,39 @@
 import User from "../models/User.js";
 import Attendance from "../models/Attendance.js";
 import Leave from "../models/Leave.js";
+import Shift from "../models/Shift.js";
 import { getISTDate, getISTTime, parseDeviceTime, formatTimeForDisplay } from "../utils/istTime.js";
 import { normalizeUID, createUIDRegex } from "../utils/lazyAttendance.js";
+
+// Convert "HH:MM" or "09:30 AM" to total minutes
+const toMinutes = (timeStr) => {
+  if (!timeStr) return 0;
+  // Handle 12-hour format (09:30 AM)
+  if (timeStr.includes('AM') || timeStr.includes('PM')) {
+    const [time, period] = timeStr.split(' ');
+    let [h, m] = time.split(':').map(Number);
+    if (period === 'PM' && h !== 12) h += 12;
+    if (period === 'AM' && h === 12) h = 0;
+    return h * 60 + m;
+  }
+  // Handle 24-hour format (09:30)
+  const [h, m] = timeStr.split(':').map(Number);
+  return h * 60 + m;
+};
 
 export const scanCard = async (req, res) => {
   try {
     const { uid, deviceTime } = req.body;
 
     if (!uid) {
-      return res.status(400).json({
-        success: false,
-        message: "UID is required"
-      });
+      return res.status(400).json({ success: false, message: "UID is required" });
     }
 
     const uidRegex = createUIDRegex(uid);
-    const user = await User.findOne({ uid: uidRegex });
+    const user = await User.findOne({ uid: uidRegex }).populate('currentShift');
 
     if (!user) {
-      return res.json({
-        success: false,
-        reason: "INVALID_CARD",
-        message: "Invalid Card - User not registered"
-      });
+      return res.json({ success: false, reason: "INVALID_CARD", message: "Invalid Card - User not registered" });
     }
 
     const attendanceDate = getISTDate();
@@ -39,36 +49,42 @@ export const scanCard = async (req, res) => {
     });
 
     if (onLeave) {
-      return res.json({
-        success: false,
-        reason: "ON_LEAVE",
-        message: `${user.name} is on approved leave today`
-      });
+      return res.json({ success: false, reason: "ON_LEAVE", message: `${user.name} is on approved leave today` });
     }
 
-    let attendance = await Attendance.findOne({
-      user: user._id,
-      date: attendanceDate
-    });
+    let attendance = await Attendance.findOne({ user: user._id, date: attendanceDate });
 
     if (attendance && attendance.lastScanAt) {
       const timeDiff = (now - attendance.lastScanAt) / 1000;
       if (timeDiff < 10) {
-        return res.json({
-          success: false,
-          reason: "DUPLICATE_SCAN",
-          message: "Duplicate scan - Please wait 10 seconds"
-        });
+        return res.json({ success: false, reason: "DUPLICATE_SCAN", message: "Duplicate scan - Please wait 10 seconds" });
       }
     }
 
+    const shift = user.currentShift;
+
     if (!attendance) {
+      // --- CHECK IN ---
+      let isLate = false;
+      let checkInStatus = "IN";
+
+      if (shift) {
+        const shiftStartMinutes = toMinutes(shift.startTime);
+        const graceMinutes = shift.graceMinutes || 15;
+        const checkInMinutes = toMinutes(currentTime);
+        if (checkInMinutes > shiftStartMinutes + graceMinutes) {
+          isLate = true;
+          checkInStatus = "LATE";
+        }
+      }
+
       attendance = await Attendance.create({
         user: user._id,
         date: attendanceDate,
         checkIn: currentTime,
-        status: "IN",
+        status: checkInStatus,
         scanStatus: "IN",
+        isLate,
         lastScanAt: now
       });
 
@@ -77,14 +93,32 @@ export const scanCard = async (req, res) => {
         type: "IN",
         name: user.name,
         time: currentTime,
-        date: attendanceDate
+        date: attendanceDate,
+        isLate,
+        message: isLate ? `${user.name} checked in LATE` : `${user.name} checked in`
       });
     }
 
     if (attendance.scanStatus === "IN") {
+      // --- CHECK OUT ---
+      const checkInMinutes = toMinutes(attendance.checkIn);
+      const checkOutMinutes = toMinutes(currentTime);
+      let workMinutes = checkOutMinutes - checkInMinutes;
+      if (workMinutes < 0) workMinutes += 24 * 60; // overnight shift
+
+      let finalStatus = "PRESENT";
+
+      if (shift) {
+        const minimumMinutes = (shift.minimumHours || 4) * 60;
+        if (workMinutes < minimumMinutes) {
+          finalStatus = "HALF_DAY";
+        }
+      }
+
       attendance.checkOut = currentTime;
       attendance.scanStatus = "OUT";
-      attendance.status = "PRESENT";
+      attendance.status = finalStatus;
+      attendance.workMinutes = workMinutes;
       attendance.lastScanAt = now;
       await attendance.save();
 
@@ -93,22 +127,20 @@ export const scanCard = async (req, res) => {
         type: "OUT",
         name: user.name,
         time: currentTime,
-        date: attendanceDate
+        date: attendanceDate,
+        workMinutes,
+        status: finalStatus,
+        message: finalStatus === "HALF_DAY"
+          ? `${user.name} checked out - HALF DAY (${Math.floor(workMinutes / 60)}h ${workMinutes % 60}m)`
+          : `${user.name} checked out (${Math.floor(workMinutes / 60)}h ${workMinutes % 60}m)`
       });
     }
 
-    return res.json({
-      success: false,
-      reason: "ALREADY_OUT",
-      message: "Attendance already completed for today"
-    });
+    return res.json({ success: false, reason: "ALREADY_OUT", message: "Attendance already completed for today" });
 
   } catch (error) {
     console.error("❌ Scan Card Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error"
-    });
+    return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
 

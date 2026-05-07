@@ -20,9 +20,13 @@ const attendanceSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  isLate: {
+    type: Boolean,
+    default: false
+  },
   status: {
     type: String,
-    enum: ["IN", "OUT", "PRESENT", "ABSENT"],
+    enum: ["IN", "OUT", "PRESENT", "ABSENT", "HALF_DAY", "LATE"],
     default: "ABSENT"
   },
   scanStatus: {
