@@ -310,7 +310,7 @@ export const getUserAttendance = async (req, res) => {
     }
 
     const user = await User.findById(userId)
-      .select("name uid email address phoneNumber employeeId profileImage")
+      .select("name uid email address phoneNumber employeeId profileImage role")
       .lean();
     if (!user) {
       return res
@@ -364,7 +364,7 @@ export const getUserAttendance = async (req, res) => {
     res.json({
       success: true,
       user: {
-        id: user._id,
+        _id: user._id,
         name: user.name,
         uid: user.uid,
         employeeId: user.employeeId,
@@ -372,6 +372,7 @@ export const getUserAttendance = async (req, res) => {
         address: user.address,
         phoneNumber: user.phoneNumber,
         profileImage: user.profileImage,
+        role: user.role,
       },
       data: attendance,
       summary: summary,
