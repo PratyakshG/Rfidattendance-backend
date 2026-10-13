@@ -4,6 +4,7 @@ import Leave from "../models/Leave.js";
 import Complaint from "../models/Complaint.js";
 import Notice from "../models/Notice.js";
 import { getISTDate } from "../utils/istTime.js";
+import { formatPresentEmployee, formatAbsentEmployee, formatOnLeaveEmployee } from "../utils/dashboardHelpers.js";
 
 export const getAdminDashboard = async (req, res) => {
   try {
@@ -92,23 +93,9 @@ export const getAdminDashboard = async (req, res) => {
           employeesOnLeave: employeesOnLeave.length,
         },
         liveStatus: {
-          present: presentEmployees.map((a) => ({
-            name: a.user?.name || "Unknown",
-            uid: a.user?.uid || "Unknown",
-            checkIn: a.checkIn,
-            status: a.status,
-          })),
-          absent: absentEmployees.map((a) => ({
-            name: a.user?.name || "Unknown",
-            uid: a.user?.uid || "Unknown",
-          })),
-          onLeave: employeesOnLeave.map((l) => ({
-            name: l.user?.name || "Unknown",
-            uid: l.user?.uid || "Unknown",
-            reason: l.reason,
-            startDate: l.startDate,
-            endDate: l.endDate,
-          })),
+          present: presentEmployees.map(formatPresentEmployee),
+          absent: absentEmployees.map(formatAbsentEmployee),
+          onLeave: employeesOnLeave.map(formatOnLeaveEmployee),
         },
         pendingLeaves,
         complaintStats,

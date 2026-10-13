@@ -1,5 +1,6 @@
 import UidMaster from "../models/UidMaster.js";
 import User from "../models/User.js";
+import { formatUID } from "../utils/uidHelpers.js";
 
 export const addUID = async (req, res) => {
   try {
@@ -64,16 +65,7 @@ export const getAllUIDs = async (req, res) => {
       .populate("assignedTo", "name employeeId")
       .sort({ createdAt: -1 });
 
-    const formattedUIDs = uids.map(uid => ({
-      _id: uid._id,
-      uid: uid.uid,
-      status: uid.status,
-      employeeName: uid.assignedTo ? uid.assignedTo.name : null,
-      employeeId: uid.assignedTo ? uid.assignedTo.employeeId : null,
-      addedBy: uid.addedBy,
-      createdAt: uid.createdAt,
-      updatedAt: uid.updatedAt
-    }));
+    const formattedUIDs = uids.map(formatUID);
 
     res.json({
       success: true,

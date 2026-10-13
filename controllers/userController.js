@@ -6,6 +6,7 @@ import {
   peekNextEmployeeId,
 } from "../services/employeeService.js";
 import { uploadToCloudinary, deleteFromCloudinary } from "../config/cloudinary.js";
+import { formatUserResponse } from "../utils/userHelpers.js";
 
 export const registerUser = async (req, res) => {
   try {
@@ -72,21 +73,7 @@ export const registerUser = async (req, res) => {
     uidMaster.assignedTo = user._id;
     await uidMaster.save();
 
-    res.json({
-      success: true,
-      message: "User Registered",
-      user: {
-        _id: user._id,
-        employeeId: user.employeeId,
-        name: user.name,
-        phoneNumber: user.phoneNumber,
-        email: user.email,
-        address: user.address,
-        uid: user.uid,
-        role: user.role,
-        profileImage: user.profileImage,
-      },
-    });
+    res.json({ success: true, message: "User Registered", user: formatUserResponse(user) });
   } catch (err) {
     res.status(500).json({
       success: false,
@@ -292,41 +279,22 @@ export const getUser = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    if (!mongoose.isValidObjectId(userId)) {
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({
         success: false,
         message: "Invalid user ID",
       });
     }
 
-    const user = await User.findById(userId)
-      .select("-password -__v")
-      .populate("currentShift");
+    const user = await User.findById(userId).select("-password -__v");
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
+      return res.status(404).json({ success: false, message: "User not found" });
     }
 
     res.json({
       success: true,
-      user: {
-        _id: user._id,
-        name: user.name,
-        uid: user.uid,
-        employeeId: user.employeeId,
-        email: user.email,
-        phoneNumber: user.phoneNumber,
-        address: user.address,
-        role: user.role,
-        profileImage: user.profileImage,
-        isActive: user.isActive,
-        currentShift: user.currentShift,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      },
+      user: { ...formatUserResponse(user), isActive: user.isActive, salary: user.salary, createdAt: user.createdAt, updatedAt: user.updatedAt },
     });
   } catch (err) {
     res.status(500).json({
@@ -339,7 +307,7 @@ export const getUser = async (req, res) => {
 export const updateUser = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { name, email, address, phoneNumber, currentShift, role } = req.body;
+    const { name, email, address, phoneNumber, role } = req.body;
 
     const user = await User.findById(userId);
     if (!user) {
@@ -362,26 +330,11 @@ export const updateUser = async (req, res) => {
     if (email) user.email = email;
     if (phoneNumber) user.phoneNumber = phoneNumber;
     if (address) user.address = address;
-    if (currentShift !== undefined) user.currentShift = currentShift;
     if (role) user.role = role;
 
     await user.save();
 
-    res.json({
-      success: true,
-      message: "User updated successfully",
-      user: {
-        _id: user._id,
-        employeeId: user.employeeId,
-        name: user.name,
-        email: user.email,
-        phoneNumber: user.phoneNumber,
-        address: user.address,
-        uid: user.uid,
-        role: user.role,
-        profileImage: user.profileImage,
-      },
-    });
+    res.json({ success: true, message: "User updated successfully", user: formatUserResponse(user) });
   } catch (err) {
     res.status(500).json({
       success: false,
